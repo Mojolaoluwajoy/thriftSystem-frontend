@@ -69,6 +69,7 @@ export default function Dashboard({ user, token, onLogout }) {
   const fetchData = async (path, setter) => {
     try {
       const res = await fetch(`${API_BASE}${path}`, { headers });
+      if (res.status === 401) return onLogout();
       const data = await res.json();
       if (data.success) setter(data.data || []);
     } catch {}
@@ -88,6 +89,7 @@ export default function Dashboard({ user, token, onLogout }) {
           startDate: new Date(createForm.startDate).toISOString(),
         }),
       });
+      if (res.status === 401) return onLogout();
       const data = await res.json();
       if (data.success) {
         setShowCreate(false);
