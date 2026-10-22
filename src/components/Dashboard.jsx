@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "../api";
 import { currencySymbol, formatMoney, formatTotals } from "../format";
 
@@ -61,7 +61,6 @@ export default function Dashboard({ user, token, onLogout }) {
   const [currencies, setCurrencies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [greeting, setGreeting] = useState("");
   const [createForm, setCreateForm] = useState({
     name: "",
     description: "",
@@ -76,27 +75,33 @@ export default function Dashboard({ user, token, onLogout }) {
   const [createError, setCreateError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  // State is only set inside .then/.catch callbacks so the initial load from useEffect
+  // never triggers a synchronous re-render (react-hooks/set-state-in-effect).
+  const fetchAll = useCallback(() => {
+    const load = (path, setter, label) =>
+      apiRequest(path, { token }).then(
+        (list) => setter(list || []),
+        (err) => {
+          if (err.status === 401) onLogout();
+          else setLoadError(`Couldn't load ${label}: ${err.message}`);
+        },
+      );
+    load("/group/my-groups", setGroups, "groups");
+    load("/contributions/my-contributions", setContributions, "contributions");
+    load("/payouts/my-payouts", setPayouts, "payouts");
+    load("/currencies", setCurrencies, "currencies");
+  }, [token, onLogout]);
+
   useEffect(() => {
-    const h = new Date().getHours();
-    setGreeting(h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening");
     fetchAll();
-  }, []);
+  }, [fetchAll]);
 
-  const fetchAll = () => {
+  const retryLoad = () => {
     setLoadError("");
-    fetchData("/group/my-groups", setGroups, "groups");
-    fetchData("/contributions/my-contributions", setContributions, "contributions");
-    fetchData("/payouts/my-payouts", setPayouts, "payouts");
-    fetchData("/currencies", setCurrencies, "currencies");
-  };
-
-  const fetchData = async (path, setter, label) => {
-    try {
-      setter((await apiRequest(path, { token })) || []);
-    } catch (err) {
-      if (err.status === 401) return onLogout();
-      setLoadError(`Couldn't load ${label}: ${err.message}`);
-    }
+    fetchAll();
   };
 
   const handleCreate = async (e) => {
@@ -122,7 +127,7 @@ export default function Dashboard({ user, token, onLogout }) {
       });
       setShowCreate(false);
       setFieldErrors({});
-      fetchData("/group/my-groups", setGroups, "groups");
+      fetchAll();
       setCreateForm({
         name: "",
         description: "",
@@ -362,7 +367,7 @@ export default function Dashboard({ user, token, onLogout }) {
           >
             <span>{loadError}</span>
             <button
-              onClick={fetchAll}
+              onClick={retryLoad}
               style={{
                 padding: "0.4rem 0.9rem",
                 background: "transparent",

@@ -29,7 +29,9 @@ export async function apiRequest(path, { method = "GET", body, token } = {}) {
   let data = null;
   try {
     data = await res.json();
-  } catch {}
+  } catch {
+    // Not JSON (e.g. an HTML error page): handled below via the status code.
+  }
 
   if (!res.ok || !data?.success) {
     const fallback = res.ok
