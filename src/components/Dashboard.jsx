@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api/v1";
+import { apiRequest } from "../api";
+import { currencySymbol, formatMoney, formatTotals } from "../format";
 
 const COLORS = {
   purple: "#7c3aed",
@@ -51,7 +51,8 @@ export default function Dashboard({ user, token, onLogout }) {
     totalMembers: "",
   });
 
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const [loadError, setLoadError] = useState("");
+  const [createError, setCreateError] = useState("");
 
   useEffect(() => {
     const h = new Date().getHours();
@@ -60,58 +61,69 @@ export default function Dashboard({ user, token, onLogout }) {
   }, []);
 
   const fetchAll = () => {
-    fetchData("/groups/my-groups", setGroups);
-    fetchData("/contributions/my-contributions", setContributions);
-    fetchData("/payouts/my-payouts", setPayouts);
-    fetchData("/currencies", setCurrencies);
+    setLoadError("");
+    fetchData("/groups/my-groups", setGroups, "groups");
+    fetchData("/contributions/my-contributions", setContributions, "contributions");
+    fetchData("/payouts/my-payouts", setPayouts, "payouts");
+    fetchData("/currencies", setCurrencies, "currencies");
   };
 
-  const fetchData = async (path, setter) => {
+  const fetchData = async (path, setter, label) => {
     try {
-      const res = await fetch(`${API_BASE}${path}`, { headers });
-      const data = await res.json();
-      if (data.success) setter(data.data || []);
-    } catch {}
+      setter((await apiRequest(path, { token })) || []);
+    } catch (err) {
+      if (err.status === 401) return onLogout();
+      setLoadError(`Couldn't load ${label}: ${err.message}`);
+    }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setCreateError("");
     try {
-      const res = await fetch(`${API_BASE}/groups`, {
+      await apiRequest("/groups", {
         method: "POST",
-        headers,
-        body: JSON.stringify({
+        token,
+        body: {
           ...createForm,
           contributionAmount: parseFloat(createForm.contributionAmount),
           totalMembers: parseInt(createForm.totalMembers),
           startDate: new Date(createForm.startDate).toISOString(),
-        }),
+        },
       });
-      const data = await res.json();
-      if (data.success) {
-        setShowCreate(false);
-        fetchData("/groups/my-groups", setGroups);
-        setCreateForm({
-          name: "",
-          description: "",
-          contributionAmount: "",
-          currency: "NGN",
-          frequency: "MONTHLY",
-          startDate: "",
-          totalMembers: "",
-        });
-      }
-    } catch {}
-    setLoading(false);
+      setShowCreate(false);
+      fetchData("/groups/my-groups", setGroups, "groups");
+      setCreateForm({
+        name: "",
+        description: "",
+        contributionAmount: "",
+        currency: "NGN",
+        frequency: "MONTHLY",
+        startDate: "",
+        totalMembers: "",
+      });
+    } catch (err) {
+      if (err.status === 401) return onLogout();
+      setCreateError(err.message || "Couldn't create group.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const totalContributed = contributions
-    .filter((c) => c.status === "SUCCESSFUL")
-    .reduce((s, c) => s + (c.amount || 0), 0);
-  const totalPayouts = payouts
-    .filter((p) => p.status === "SUCCESSFUL")
-    .reduce((s, p) => s + (p.amount || 0), 0);
+  const errorBoxStyle = {
+    background: "rgba(239,68,68,0.1)",
+    border: "1px solid rgba(239,68,68,0.3)",
+    borderRadius: "10px",
+    padding: "0.75rem 1rem",
+    color: "#f87171",
+    fontSize: "0.85rem",
+    marginBottom: "1.5rem",
+  };
+
+  const totalContributed = formatTotals(contributions.filter((c) => c.status === "SUCCESSFUL"));
+  const totalPayouts = formatTotals(payouts.filter((p) => p.status === "SUCCESSFUL"));
+  const createSymbol = currencySymbol(createForm.currency);
 
   const cardColors = [COLORS.purple, COLORS.cyan, COLORS.amber, COLORS.green, COLORS.pink];
 
@@ -308,6 +320,34 @@ export default function Dashboard({ user, token, onLogout }) {
 
       {/* Main */}
       <div style={{ flex: 1, padding: "2rem", overflowY: "auto" }}>
+        {loadError && (
+          <div
+            style={{
+              ...errorBoxStyle,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "1rem",
+            }}
+          >
+            <span>{loadError}</span>
+            <button
+              onClick={fetchAll}
+              style={{
+                padding: "0.4rem 0.9rem",
+                background: "transparent",
+                border: "1px solid rgba(239,68,68,0.4)",
+                borderRadius: "8px",
+                color: "#f87171",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontWeight: "600",
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {/* Dashboard */}
         {active === "dashboard" && (
           <div>
@@ -355,13 +395,13 @@ export default function Dashboard({ user, token, onLogout }) {
                 },
                 {
                   label: "Total Contributed",
-                  value: `₦${totalContributed.toLocaleString()}`,
+                  value: totalContributed,
                   color: COLORS.cyan,
                   icon: "💳",
                 },
                 {
                   label: "Total Payouts",
-                  value: `₦${totalPayouts.toLocaleString()}`,
+                  value: totalPayouts,
                   color: COLORS.amber,
                   icon: "💸",
                 },
@@ -434,14 +474,15 @@ export default function Dashboard({ user, token, onLogout }) {
                   title: "Recent Groups",
                   items: groups.slice(0, 3),
                   getTitle: (g) => g.name,
-                  getSub: (g) => `₦${g.contributionAmount?.toLocaleString()} · ${g.frequency}`,
+                  getSub: (g) =>
+                    `${formatMoney(g.contributionAmount, g.currency)} · ${g.frequency}`,
                   getStatus: (g) => g.status,
                   icon: "👥",
                 },
                 {
                   title: "Recent Contributions",
                   items: contributions.slice(0, 3),
-                  getTitle: (c) => `₦${c.amount?.toLocaleString()}`,
+                  getTitle: (c) => formatMoney(c.amount, c.currency),
                   getSub: (c) => `Cycle ${c.cycleNumber} · ${c.currency}`,
                   getStatus: (c) => c.status,
                   icon: "💳",
@@ -574,7 +615,7 @@ export default function Dashboard({ user, token, onLogout }) {
                     {[
                       ["Group Name", "name", "text", "e.g. Office Thrift 2026"],
                       ["Description", "description", "text", "Optional"],
-                      ["Amount (₦)", "contributionAmount", "number", "e.g. 10000"],
+                      [`Amount (${createSymbol})`, "contributionAmount", "number", "e.g. 10000"],
                       ["Total Members", "totalMembers", "number", "e.g. 10"],
                       ["Start Date", "startDate", "date", ""],
                     ].map(([label, key, type, ph]) => (
@@ -651,12 +692,17 @@ export default function Dashboard({ user, token, onLogout }) {
                       >
                         {currencies.map((c) => (
                           <option key={c.code} value={c.code} style={{ background: "#1a1a2e" }}>
-                            {c.symbol} {c.code}
+                            {currencySymbol(c.code)} {c.code}
                           </option>
                         ))}
                       </select>
                     </div>
                   </div>
+                  {createError && (
+                    <div style={{ ...errorBoxStyle, marginTop: "1.25rem", marginBottom: 0 }}>
+                      {createError}
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: "1rem", marginTop: "1.25rem" }}>
                     <button
                       type="submit"
@@ -743,7 +789,7 @@ export default function Dashboard({ user, token, onLogout }) {
                   )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     {[
-                      ["Amount", `₦${g.contributionAmount?.toLocaleString()}`],
+                      ["Amount", formatMoney(g.contributionAmount, g.currency)],
                       ["Members", `${g.memberIds?.length || 0}/${g.totalMembers}`],
                       ["Cycle", `${g.currentCycle}/${g.totalCycles}`],
                       ["Frequency", g.frequency],
@@ -839,7 +885,7 @@ export default function Dashboard({ user, token, onLogout }) {
                     </div>
                     <div>
                       <p style={{ margin: 0, color: "#fff", fontWeight: "700" }}>
-                        ₦{c.amount?.toLocaleString()}
+                        {formatMoney(c.amount, c.currency)}
                       </p>
                       <p style={{ margin: 0, color: "#6b7280", fontSize: "0.8rem" }}>
                         Cycle {c.cycleNumber} · {c.currency}
@@ -917,7 +963,7 @@ export default function Dashboard({ user, token, onLogout }) {
                     </div>
                     <div>
                       <p style={{ margin: 0, color: "#fff", fontWeight: "700" }}>
-                        ₦{p.amount?.toLocaleString()}
+                        {formatMoney(p.amount, p.currency)}
                       </p>
                       <p style={{ margin: 0, color: "#6b7280", fontSize: "0.8rem" }}>
                         Cycle {p.cycleNumber} · {p.currency}
@@ -989,7 +1035,7 @@ export default function Dashboard({ user, token, onLogout }) {
                       color: cardColors[i % cardColors.length],
                     }}
                   >
-                    {c.symbol}
+                    {currencySymbol(c.code)}
                   </p>
                   <p style={{ margin: 0, color: "#fff", fontWeight: "800" }}>{c.code}</p>
                   <p style={{ margin: "0.25rem 0 0", color: "#6b7280", fontSize: "0.8rem" }}>
@@ -1003,7 +1049,7 @@ export default function Dashboard({ user, token, onLogout }) {
                       fontWeight: "700",
                     }}
                   >
-                    ₦{c.exchangeRate?.toLocaleString()}
+                    {formatMoney(c.exchangeRate, "NGN", { maximumFractionDigits: 4 })}
                   </p>
                 </div>
               ))}
