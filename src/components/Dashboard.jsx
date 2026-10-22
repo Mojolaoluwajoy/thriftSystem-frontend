@@ -20,6 +20,10 @@ const navItems = [
   { id: "profile", label: "Profile", icon: "👤" },
 ];
 
+// Must match the backend ContributionFrequency enum.
+const FREQUENCIES = ["DAILY", "WEEKLY", "BI_WEEKLY", "MONTHLY", "BI_MONTHLY"];
+const frequencyLabel = (f) => f?.replace("_", "-");
+
 const statusColor = (s) =>
   ({
     ACTIVE: COLORS.green,
@@ -62,7 +66,7 @@ export default function Dashboard({ user, token, onLogout }) {
 
   const fetchAll = () => {
     setLoadError("");
-    fetchData("/groups/my-groups", setGroups, "groups");
+    fetchData("/group/my-groups", setGroups, "groups");
     fetchData("/contributions/my-contributions", setContributions, "contributions");
     fetchData("/payouts/my-payouts", setPayouts, "payouts");
     fetchData("/currencies", setCurrencies, "currencies");
@@ -82,7 +86,7 @@ export default function Dashboard({ user, token, onLogout }) {
     setLoading(true);
     setCreateError("");
     try {
-      await apiRequest("/groups", {
+      await apiRequest("/group/create-group", {
         method: "POST",
         token,
         body: {
@@ -93,7 +97,7 @@ export default function Dashboard({ user, token, onLogout }) {
         },
       });
       setShowCreate(false);
-      fetchData("/groups/my-groups", setGroups, "groups");
+      fetchData("/group/my-groups", setGroups, "groups");
       setCreateForm({
         name: "",
         description: "",
@@ -475,7 +479,7 @@ export default function Dashboard({ user, token, onLogout }) {
                   items: groups.slice(0, 3),
                   getTitle: (g) => g.name,
                   getSub: (g) =>
-                    `${formatMoney(g.contributionAmount, g.currency)} · ${g.frequency}`,
+                    `${formatMoney(g.contributionAmount, g.currency)} · ${frequencyLabel(g.frequency)}`,
                   getStatus: (g) => g.status,
                   icon: "👥",
                 },
@@ -664,9 +668,9 @@ export default function Dashboard({ user, token, onLogout }) {
                         }
                         style={inputStyle}
                       >
-                        {["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY", "BIMONTHLY"].map((f) => (
+                        {FREQUENCIES.map((f) => (
                           <option key={f} value={f} style={{ background: "#1a1a2e" }}>
-                            {f}
+                            {frequencyLabel(f)}
                           </option>
                         ))}
                       </select>
@@ -792,7 +796,7 @@ export default function Dashboard({ user, token, onLogout }) {
                       ["Amount", formatMoney(g.contributionAmount, g.currency)],
                       ["Members", `${g.memberIds?.length || 0}/${g.totalMembers}`],
                       ["Cycle", `${g.currentCycle}/${g.totalCycles}`],
-                      ["Frequency", g.frequency],
+                      ["Frequency", frequencyLabel(g.frequency)],
                     ].map(([label, val]) => (
                       <div
                         key={label}
