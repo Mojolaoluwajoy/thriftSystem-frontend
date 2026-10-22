@@ -1,5 +1,15 @@
 export const DEFAULT_CURRENCY = "NGN";
 
+const symbolFor = (currency, currencyDisplay) =>
+  new Intl.NumberFormat(undefined, { style: "currency", currency, currencyDisplay })
+    .formatToParts(0)
+    .find((p) => p.type === "currency")?.value;
+
+// Prefer the full symbol so currencies stay distinct (USD "$" vs CAD "CA$"), but use the
+// narrow one when the locale has no full symbol and would just repeat the code (NGN -> "₦").
+const displayFor = (currency) =>
+  symbolFor(currency, "symbol") === currency ? "narrowSymbol" : "symbol";
+
 // Formats an amount in its own currency, e.g. formatMoney(12500, "USD") -> "$12,500.00".
 export function formatMoney(amount, currency = DEFAULT_CURRENCY, options = {}) {
   if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return "—";
@@ -8,7 +18,7 @@ export function formatMoney(amount, currency = DEFAULT_CURRENCY, options = {}) {
     return new Intl.NumberFormat(undefined, {
       style: "currency",
       currency: code,
-      currencyDisplay: "narrowSymbol",
+      currencyDisplay: displayFor(code),
       ...options,
     }).format(amount);
   } catch {
@@ -21,15 +31,7 @@ export function formatMoney(amount, currency = DEFAULT_CURRENCY, options = {}) {
 // `symbol` field, which is seeded with placeholders like "#" and "E".
 export function currencySymbol(currency = DEFAULT_CURRENCY) {
   try {
-    return (
-      new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency,
-        currencyDisplay: "narrowSymbol",
-      })
-        .formatToParts(0)
-        .find((p) => p.type === "currency")?.value || currency
-    );
+    return symbolFor(currency, displayFor(currency)) || currency;
   } catch {
     return currency;
   }
