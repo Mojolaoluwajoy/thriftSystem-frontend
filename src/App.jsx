@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Login from "./components/Login";
 import Dashboard from "./components/Dashboard";
 
@@ -19,7 +19,9 @@ const loadSession = () => {
   try {
     const session = JSON.parse(localStorage.getItem(SESSION_KEY));
     if (session?.user && session?.token && !isTokenExpired(session.token)) return session;
-  } catch {}
+  } catch {
+    // Corrupt or unreadable session data: fall through and start logged out.
+  }
   clearSession();
   return null;
 };
@@ -27,13 +29,17 @@ const loadSession = () => {
 const saveSession = (session) => {
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  } catch {}
+  } catch {
+    // Storage unavailable (e.g. private mode): the session just won't survive a reload.
+  }
 };
 
 const clearSession = () => {
   try {
     localStorage.removeItem(SESSION_KEY);
-  } catch {}
+  } catch {
+    // Storage unavailable: nothing to clear.
+  }
 };
 
 export default function App() {
@@ -45,10 +51,11 @@ export default function App() {
     setSession(next);
   };
 
-  const handleLogout = () => {
+  // Stable identity so Dashboard's data-loading effect doesn't re-run on every render.
+  const handleLogout = useCallback(() => {
     clearSession();
     setSession(null);
-  };
+  }, []);
 
   return (
     <div>
