@@ -1,6 +1,5 @@
 import { useState } from "react";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api/v1";
+import { apiRequest } from "../api";
 
 export default function Login({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -20,18 +19,13 @@ export default function Login({ onLogin }) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (data.success) onLogin(data.data, data.data.token);
-      else setError(data.message || "Login failed");
-    } catch {
-      setError("Connection error. Make sure the server is running.");
+      const user = await apiRequest("/auth/login", { method: "POST", body: form });
+      onLogin(user, user.token);
+    } catch (err) {
+      setError(err.message || "Login failed");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleRegister = async (e) => {
@@ -39,18 +33,13 @@ export default function Login({ onLogin }) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(regForm),
-      });
-      const data = await res.json();
-      if (data.success) onLogin(data.data, data.data.token);
-      else setError(data.message || "Registration failed");
-    } catch {
-      setError("Connection error. Make sure the server is running.");
+      const user = await apiRequest("/auth/register", { method: "POST", body: regForm });
+      onLogin(user, user.token);
+    } catch (err) {
+      setError(err.message || "Registration failed");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const inputStyle = {

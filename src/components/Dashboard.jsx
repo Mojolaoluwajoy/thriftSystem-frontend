@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api/v1";
+import { apiRequest } from "../api";
 
 const COLORS = {
   purple: "#7c3aed",
@@ -51,7 +50,8 @@ export default function Dashboard({ user, token, onLogout }) {
     totalMembers: "",
   });
 
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const [loadError, setLoadError] = useState("");
+  const [createError, setCreateError] = useState("");
 
   useEffect(() => {
     const h = new Date().getHours();
@@ -60,52 +60,64 @@ export default function Dashboard({ user, token, onLogout }) {
   }, []);
 
   const fetchAll = () => {
-    fetchData("/groups/my-groups", setGroups);
-    fetchData("/contributions/my-contributions", setContributions);
-    fetchData("/payouts/my-payouts", setPayouts);
-    fetchData("/currencies", setCurrencies);
+    setLoadError("");
+    fetchData("/groups/my-groups", setGroups, "groups");
+    fetchData("/contributions/my-contributions", setContributions, "contributions");
+    fetchData("/payouts/my-payouts", setPayouts, "payouts");
+    fetchData("/currencies", setCurrencies, "currencies");
   };
 
-  const fetchData = async (path, setter) => {
+  const fetchData = async (path, setter, label) => {
     try {
-      const res = await fetch(`${API_BASE}${path}`, { headers });
-      if (res.status === 401) return onLogout();
-      const data = await res.json();
-      if (data.success) setter(data.data || []);
-    } catch {}
+      setter((await apiRequest(path, { token })) || []);
+    } catch (err) {
+      if (err.status === 401) return onLogout();
+      setLoadError(`Couldn't load ${label}: ${err.message}`);
+    }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setCreateError("");
     try {
-      const res = await fetch(`${API_BASE}/groups`, {
+      await apiRequest("/groups", {
         method: "POST",
-        headers,
-        body: JSON.stringify({
+        token,
+        body: {
           ...createForm,
           contributionAmount: parseFloat(createForm.contributionAmount),
           totalMembers: parseInt(createForm.totalMembers),
           startDate: new Date(createForm.startDate).toISOString(),
-        }),
+        },
       });
-      if (res.status === 401) return onLogout();
-      const data = await res.json();
-      if (data.success) {
-        setShowCreate(false);
-        fetchData("/groups/my-groups", setGroups);
-        setCreateForm({
-          name: "",
-          description: "",
-          contributionAmount: "",
-          currency: "NGN",
-          frequency: "MONTHLY",
-          startDate: "",
-          totalMembers: "",
-        });
-      }
-    } catch {}
-    setLoading(false);
+      setShowCreate(false);
+      fetchData("/groups/my-groups", setGroups, "groups");
+      setCreateForm({
+        name: "",
+        description: "",
+        contributionAmount: "",
+        currency: "NGN",
+        frequency: "MONTHLY",
+        startDate: "",
+        totalMembers: "",
+      });
+    } catch (err) {
+      if (err.status === 401) return onLogout();
+      setCreateError(err.message || "Couldn't create group.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const errorBoxStyle = {
+    background: "rgba(239,68,68,0.1)",
+    border: "1px solid rgba(239,68,68,0.3)",
+    borderRadius: "10px",
+    padding: "0.75rem 1rem",
+    color: "#f87171",
+    fontSize: "0.85rem",
+    marginBottom: "1.5rem",
   };
 
   const totalContributed = contributions
@@ -310,6 +322,34 @@ export default function Dashboard({ user, token, onLogout }) {
 
       {/* Main */}
       <div style={{ flex: 1, padding: "2rem", overflowY: "auto" }}>
+        {loadError && (
+          <div
+            style={{
+              ...errorBoxStyle,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "1rem",
+            }}
+          >
+            <span>{loadError}</span>
+            <button
+              onClick={fetchAll}
+              style={{
+                padding: "0.4rem 0.9rem",
+                background: "transparent",
+                border: "1px solid rgba(239,68,68,0.4)",
+                borderRadius: "8px",
+                color: "#f87171",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontWeight: "600",
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {/* Dashboard */}
         {active === "dashboard" && (
           <div>
@@ -659,6 +699,11 @@ export default function Dashboard({ user, token, onLogout }) {
                       </select>
                     </div>
                   </div>
+                  {createError && (
+                    <div style={{ ...errorBoxStyle, marginTop: "1.25rem", marginBottom: 0 }}>
+                      {createError}
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: "1rem", marginTop: "1.25rem" }}>
                     <button
                       type="submit"
