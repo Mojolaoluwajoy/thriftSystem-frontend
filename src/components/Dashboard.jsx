@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiRequest } from "../api";
-import { formatMoney, formatTotals } from "../format";
+import { currencySymbol, formatMoney, formatTotals } from "../format";
 
 const COLORS = {
   purple: "#7c3aed",
@@ -123,8 +123,7 @@ export default function Dashboard({ user, token, onLogout }) {
 
   const totalContributed = formatTotals(contributions.filter((c) => c.status === "SUCCESSFUL"));
   const totalPayouts = formatTotals(payouts.filter((p) => p.status === "SUCCESSFUL"));
-  const createSymbol =
-    currencies.find((c) => c.code === createForm.currency)?.symbol || createForm.currency;
+  const createSymbol = currencySymbol(createForm.currency);
 
   const cardColors = [COLORS.purple, COLORS.cyan, COLORS.amber, COLORS.green, COLORS.pink];
 
@@ -693,7 +692,7 @@ export default function Dashboard({ user, token, onLogout }) {
                       >
                         {currencies.map((c) => (
                           <option key={c.code} value={c.code} style={{ background: "#1a1a2e" }}>
-                            {c.symbol} {c.code}
+                            {currencySymbol(c.code)} {c.code}
                           </option>
                         ))}
                       </select>
@@ -1036,7 +1035,7 @@ export default function Dashboard({ user, token, onLogout }) {
                       color: cardColors[i % cardColors.length],
                     }}
                   >
-                    {c.symbol}
+                    {currencySymbol(c.code)}
                   </p>
                   <p style={{ margin: 0, color: "#fff", fontWeight: "800" }}>{c.code}</p>
                   <p style={{ margin: "0.25rem 0 0", color: "#6b7280", fontSize: "0.8rem" }}>

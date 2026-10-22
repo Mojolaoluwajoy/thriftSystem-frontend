@@ -17,6 +17,24 @@ export function formatMoney(amount, currency = DEFAULT_CURRENCY, options = {}) {
   }
 }
 
+// Standard symbol for a currency code, e.g. "NGN" -> "₦". Used instead of the API's
+// `symbol` field, which is seeded with placeholders like "#" and "E".
+export function currencySymbol(currency = DEFAULT_CURRENCY) {
+  try {
+    return (
+      new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency,
+        currencyDisplay: "narrowSymbol",
+      })
+        .formatToParts(0)
+        .find((p) => p.type === "currency")?.value || currency
+    );
+  } catch {
+    return currency;
+  }
+}
+
 // Sums `amount` per currency so different currencies are never added together,
 // e.g. "₦50,000.00 · $120.00". Returns a zero in the default currency when empty.
 export function formatTotals(items) {
