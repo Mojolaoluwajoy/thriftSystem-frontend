@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiRequest } from "../api";
+import { formatMoney, formatTotals } from "../format";
 
 const COLORS = {
   purple: "#7c3aed",
@@ -120,12 +121,10 @@ export default function Dashboard({ user, token, onLogout }) {
     marginBottom: "1.5rem",
   };
 
-  const totalContributed = contributions
-    .filter((c) => c.status === "SUCCESSFUL")
-    .reduce((s, c) => s + (c.amount || 0), 0);
-  const totalPayouts = payouts
-    .filter((p) => p.status === "SUCCESSFUL")
-    .reduce((s, p) => s + (p.amount || 0), 0);
+  const totalContributed = formatTotals(contributions.filter((c) => c.status === "SUCCESSFUL"));
+  const totalPayouts = formatTotals(payouts.filter((p) => p.status === "SUCCESSFUL"));
+  const createSymbol =
+    currencies.find((c) => c.code === createForm.currency)?.symbol || createForm.currency;
 
   const cardColors = [COLORS.purple, COLORS.cyan, COLORS.amber, COLORS.green, COLORS.pink];
 
@@ -397,13 +396,13 @@ export default function Dashboard({ user, token, onLogout }) {
                 },
                 {
                   label: "Total Contributed",
-                  value: `₦${totalContributed.toLocaleString()}`,
+                  value: totalContributed,
                   color: COLORS.cyan,
                   icon: "💳",
                 },
                 {
                   label: "Total Payouts",
-                  value: `₦${totalPayouts.toLocaleString()}`,
+                  value: totalPayouts,
                   color: COLORS.amber,
                   icon: "💸",
                 },
@@ -476,14 +475,15 @@ export default function Dashboard({ user, token, onLogout }) {
                   title: "Recent Groups",
                   items: groups.slice(0, 3),
                   getTitle: (g) => g.name,
-                  getSub: (g) => `₦${g.contributionAmount?.toLocaleString()} · ${g.frequency}`,
+                  getSub: (g) =>
+                    `${formatMoney(g.contributionAmount, g.currency)} · ${g.frequency}`,
                   getStatus: (g) => g.status,
                   icon: "👥",
                 },
                 {
                   title: "Recent Contributions",
                   items: contributions.slice(0, 3),
-                  getTitle: (c) => `₦${c.amount?.toLocaleString()}`,
+                  getTitle: (c) => formatMoney(c.amount, c.currency),
                   getSub: (c) => `Cycle ${c.cycleNumber} · ${c.currency}`,
                   getStatus: (c) => c.status,
                   icon: "💳",
@@ -616,7 +616,7 @@ export default function Dashboard({ user, token, onLogout }) {
                     {[
                       ["Group Name", "name", "text", "e.g. Office Thrift 2026"],
                       ["Description", "description", "text", "Optional"],
-                      ["Amount (₦)", "contributionAmount", "number", "e.g. 10000"],
+                      [`Amount (${createSymbol})`, "contributionAmount", "number", "e.g. 10000"],
                       ["Total Members", "totalMembers", "number", "e.g. 10"],
                       ["Start Date", "startDate", "date", ""],
                     ].map(([label, key, type, ph]) => (
@@ -790,7 +790,7 @@ export default function Dashboard({ user, token, onLogout }) {
                   )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     {[
-                      ["Amount", `₦${g.contributionAmount?.toLocaleString()}`],
+                      ["Amount", formatMoney(g.contributionAmount, g.currency)],
                       ["Members", `${g.memberIds?.length || 0}/${g.totalMembers}`],
                       ["Cycle", `${g.currentCycle}/${g.totalCycles}`],
                       ["Frequency", g.frequency],
@@ -886,7 +886,7 @@ export default function Dashboard({ user, token, onLogout }) {
                     </div>
                     <div>
                       <p style={{ margin: 0, color: "#fff", fontWeight: "700" }}>
-                        ₦{c.amount?.toLocaleString()}
+                        {formatMoney(c.amount, c.currency)}
                       </p>
                       <p style={{ margin: 0, color: "#6b7280", fontSize: "0.8rem" }}>
                         Cycle {c.cycleNumber} · {c.currency}
@@ -964,7 +964,7 @@ export default function Dashboard({ user, token, onLogout }) {
                     </div>
                     <div>
                       <p style={{ margin: 0, color: "#fff", fontWeight: "700" }}>
-                        ₦{p.amount?.toLocaleString()}
+                        {formatMoney(p.amount, p.currency)}
                       </p>
                       <p style={{ margin: 0, color: "#6b7280", fontSize: "0.8rem" }}>
                         Cycle {p.cycleNumber} · {p.currency}
@@ -1050,7 +1050,7 @@ export default function Dashboard({ user, token, onLogout }) {
                       fontWeight: "700",
                     }}
                   >
-                    ₦{c.exchangeRate?.toLocaleString()}
+                    {formatMoney(c.exchangeRate, "NGN", { maximumFractionDigits: 4 })}
                   </p>
                 </div>
               ))}
