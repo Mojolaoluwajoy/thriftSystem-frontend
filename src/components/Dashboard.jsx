@@ -20,6 +20,27 @@ const navItems = [
   { id: "profile", label: "Profile", icon: "👤" },
 ];
 
+// Must match the backend ContributionFrequency enum.
+const FREQUENCIES = ["DAILY", "WEEKLY", "BI_WEEKLY", "MONTHLY", "BI_MONTHLY"];
+const frequencyLabel = (f) => f?.replace("_", "-");
+
+// Mirrors the backend CreateGroupRequest constraints so mistakes are caught before submitting.
+const validateGroup = (form) => {
+  const errors = {};
+  const amount = Number(form.contributionAmount);
+  const members = Number(form.totalMembers);
+  if (!form.name.trim()) errors.name = "Group name is required";
+  if (form.contributionAmount === "") errors.contributionAmount = "Contribution amount is required";
+  else if (!Number.isFinite(amount) || amount <= 0)
+    errors.contributionAmount = "Contribution amount must be positive";
+  if (form.totalMembers === "") errors.totalMembers = "Total members is required";
+  else if (!Number.isInteger(members) || members <= 0)
+    errors.totalMembers = "Total members must be a positive whole number";
+  if (!form.startDate) errors.startDate = "Start date is required";
+  if (!form.currency) errors.currency = "Currency is required";
+  return errors;
+};
+
 const statusColor = (s) =>
   ({
     ACTIVE: COLORS.green,
@@ -53,6 +74,7 @@ export default function Dashboard({ user, token, onLogout }) {
 
   const [loadError, setLoadError] = useState("");
   const [createError, setCreateError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     const h = new Date().getHours();
@@ -62,7 +84,7 @@ export default function Dashboard({ user, token, onLogout }) {
 
   const fetchAll = () => {
     setLoadError("");
-    fetchData("/groups/my-groups", setGroups, "groups");
+    fetchData("/group/my-groups", setGroups, "groups");
     fetchData("/contributions/my-contributions", setContributions, "contributions");
     fetchData("/payouts/my-payouts", setPayouts, "payouts");
     fetchData("/currencies", setCurrencies, "currencies");
@@ -79,21 +101,28 @@ export default function Dashboard({ user, token, onLogout }) {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setCreateError("");
+    const errors = validateGroup(createForm);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setLoading(true);
     try {
-      await apiRequest("/groups", {
+      await apiRequest("/group/create-group", {
         method: "POST",
         token,
         body: {
           ...createForm,
-          contributionAmount: parseFloat(createForm.contributionAmount),
-          totalMembers: parseInt(createForm.totalMembers),
-          startDate: new Date(createForm.startDate).toISOString(),
+          name: createForm.name.trim(),
+          contributionAmount: Number(createForm.contributionAmount),
+          totalMembers: Number(createForm.totalMembers),
+          // Backend expects a LocalDateTime; send local midnight with no timezone suffix.
+          startDate: `${createForm.startDate}T00:00:00`,
         },
       });
       setShowCreate(false);
-      fetchData("/groups/my-groups", setGroups, "groups");
+      setFieldErrors({});
+      fetchData("/group/my-groups", setGroups, "groups");
       setCreateForm({
         name: "",
         description: "",
@@ -105,6 +134,7 @@ export default function Dashboard({ user, token, onLogout }) {
       });
     } catch (err) {
       if (err.status === 401) return onLogout();
+      setFieldErrors(err.fieldErrors || {});
       setCreateError(err.message || "Couldn't create group.");
     } finally {
       setLoading(false);
@@ -475,7 +505,7 @@ export default function Dashboard({ user, token, onLogout }) {
                   items: groups.slice(0, 3),
                   getTitle: (g) => g.name,
                   getSub: (g) =>
-                    `${formatMoney(g.contributionAmount, g.currency)} · ${g.frequency}`,
+                    `${formatMoney(g.contributionAmount, g.currency)} · ${frequencyLabel(g.frequency)}`,
                   getStatus: (g) => g.status,
                   icon: "👥",
                 },
@@ -610,15 +640,27 @@ export default function Dashboard({ user, token, onLogout }) {
                 <h3 style={{ margin: "0 0 1rem", color: "#fff", fontWeight: "800" }}>
                   Create New Group
                 </h3>
-                <form onSubmit={handleCreate}>
+                <form onSubmit={handleCreate} noValidate>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                     {[
-                      ["Group Name", "name", "text", "e.g. Office Thrift 2026"],
-                      ["Description", "description", "text", "Optional"],
-                      [`Amount (${createSymbol})`, "contributionAmount", "number", "e.g. 10000"],
-                      ["Total Members", "totalMembers", "number", "e.g. 10"],
-                      ["Start Date", "startDate", "date", ""],
-                    ].map(([label, key, type, ph]) => (
+                      ["Group Name", "name", "text", "e.g. Office Thrift 2026", {}],
+                      ["Description", "description", "text", "Optional", {}],
+                      [
+                        `Amount (${createSymbol})`,
+                        "contributionAmount",
+                        "number",
+                        "e.g. 10000",
+                        { min: "0.01", step: "0.01" },
+                      ],
+                      [
+                        "Total Members",
+                        "totalMembers",
+                        "number",
+                        "e.g. 10",
+                        { min: "1", step: "1" },
+                      ],
+                      ["Start Date", "startDate", "date", "", {}],
+                    ].map(([label, key, type, ph, attrs]) => (
                       <div key={key}>
                         <label
                           style={{
@@ -637,10 +679,23 @@ export default function Dashboard({ user, token, onLogout }) {
                           type={type}
                           placeholder={ph}
                           required={key !== "description"}
+                          {...attrs}
                           value={createForm[key]}
-                          onChange={(e) => setCreateForm({ ...createForm, [key]: e.target.value })}
-                          style={inputStyle}
+                          onChange={(e) => {
+                            setCreateForm({ ...createForm, [key]: e.target.value });
+                            setFieldErrors({ ...fieldErrors, [key]: undefined });
+                          }}
+                          aria-invalid={Boolean(fieldErrors[key])}
+                          style={{
+                            ...inputStyle,
+                            ...(fieldErrors[key] && { borderColor: COLORS.red }),
+                          }}
                         />
+                        {fieldErrors[key] && (
+                          <p style={{ margin: "4px 0 0", color: "#f87171", fontSize: "0.75rem" }}>
+                            {fieldErrors[key]}
+                          </p>
+                        )}
                       </div>
                     ))}
                     <div>
@@ -664,9 +719,9 @@ export default function Dashboard({ user, token, onLogout }) {
                         }
                         style={inputStyle}
                       >
-                        {["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY", "BIMONTHLY"].map((f) => (
+                        {FREQUENCIES.map((f) => (
                           <option key={f} value={f} style={{ background: "#1a1a2e" }}>
-                            {f}
+                            {frequencyLabel(f)}
                           </option>
                         ))}
                       </select>
@@ -722,7 +777,11 @@ export default function Dashboard({ user, token, onLogout }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowCreate(false)}
+                      onClick={() => {
+                        setShowCreate(false);
+                        setCreateError("");
+                        setFieldErrors({});
+                      }}
                       style={{
                         padding: "0.75rem 1.5rem",
                         background: "transparent",
@@ -792,7 +851,7 @@ export default function Dashboard({ user, token, onLogout }) {
                       ["Amount", formatMoney(g.contributionAmount, g.currency)],
                       ["Members", `${g.memberIds?.length || 0}/${g.totalMembers}`],
                       ["Cycle", `${g.currentCycle}/${g.totalCycles}`],
-                      ["Frequency", g.frequency],
+                      ["Frequency", frequencyLabel(g.frequency)],
                     ].map(([label, val]) => (
                       <div
                         key={label}

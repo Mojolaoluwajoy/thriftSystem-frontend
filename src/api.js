@@ -1,9 +1,11 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api/v1";
 
 export class ApiError extends Error {
-  constructor(message, status) {
+  // `fieldErrors` holds the backend's per-field validation messages, e.g. { name: "Group name is required" }.
+  constructor(message, status, fieldErrors = {}) {
     super(message);
     this.status = status;
+    this.fieldErrors = fieldErrors;
   }
 }
 
@@ -33,7 +35,8 @@ export async function apiRequest(path, { method = "GET", body, token } = {}) {
     const fallback = res.ok
       ? "Unexpected response from server."
       : `Request failed (${res.status}).`;
-    throw new ApiError(data?.message || fallback, res.status);
+    const fieldErrors = data?.data && typeof data.data === "object" ? data.data : {};
+    throw new ApiError(data?.message || fallback, res.status, fieldErrors);
   }
   return data.data;
 }
