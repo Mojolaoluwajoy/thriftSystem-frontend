@@ -8,6 +8,7 @@ import { cardColor } from "./theme";
 export default function GroupsTab({
   token,
   groups,
+  status,
   currencies,
   showCreate,
   onToggleCreate,
@@ -67,6 +68,7 @@ export default function GroupsTab({
         ))}
         {groups.length === 0 && (
           <EmptyState
+            status={status}
             icon="👥"
             message="No groups yet. Create your first thrift group!"
             style={{ gridColumn: "1/-1" }}

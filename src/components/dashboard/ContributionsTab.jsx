@@ -2,7 +2,7 @@ import EmptyState from "./EmptyState";
 import { pageTitleStyle, statusColor } from "./theme";
 import TransactionRow from "./TransactionRow";
 
-export default function ContributionsTab({ contributions }) {
+export default function ContributionsTab({ contributions, status }) {
   return (
     <div>
       <h2 style={pageTitleStyle}>My Contributions</h2>
@@ -17,7 +17,9 @@ export default function ContributionsTab({ contributions }) {
             date={c.dueDate}
           />
         ))}
-        {contributions.length === 0 && <EmptyState icon="💳" message="No contributions yet" />}
+        {contributions.length === 0 && (
+          <EmptyState status={status} icon="💳" message="No contributions yet" />
+        )}
       </div>
     </div>
   );
