@@ -83,7 +83,10 @@ export default function CreateGroupForm({ token, currencies, onCreated, onCancel
                   setFieldErrors({ ...fieldErrors, [key]: undefined });
                 }}
                 aria-invalid={Boolean(fieldErrors[key])}
-                style={{ ...inputStyle, ...(fieldErrors[key] && { borderColor: COLORS.red }) }}
+                style={{
+                  ...inputStyle,
+                  ...(fieldErrors[key] && { border: `1.5px solid ${COLORS.red}` }),
+                }}
               />
               {fieldErrors[key] && (
                 <p style={{ margin: "4px 0 0", color: "#f87171", fontSize: "0.75rem" }}>

@@ -1,19 +1,39 @@
+import { useState } from "react";
 import { formatMoney } from "../../format";
 import CreateGroupForm from "./CreateGroupForm";
 import EmptyState from "./EmptyState";
+import GroupDetails from "./GroupDetails";
 import { frequencyLabel } from "./groups";
 import StatusBadge from "./StatusBadge";
 import { cardColor } from "./theme";
 
 export default function GroupsTab({
+  user,
   token,
   groups,
+  status,
   currencies,
   showCreate,
   onToggleCreate,
   onCreated,
+  onChanged,
   onLogout,
 }) {
+  const [selectedId, setSelectedId] = useState(null);
+
+  if (selectedId) {
+    return (
+      <GroupDetails
+        groupId={selectedId}
+        user={user}
+        token={token}
+        onBack={() => setSelectedId(null)}
+        onChanged={onChanged}
+        onLogout={onLogout}
+      />
+    );
+  }
+
   return (
     <div>
       <div
@@ -63,10 +83,16 @@ export default function GroupsTab({
         }}
       >
         {groups.map((g, i) => (
-          <GroupCard key={g.id} group={g} accent={cardColor(i)} />
+          <GroupCard
+            key={g.id}
+            group={g}
+            accent={cardColor(i)}
+            onOpen={() => setSelectedId(g.id)}
+          />
         ))}
         {groups.length === 0 && (
           <EmptyState
+            status={status}
             icon="👥"
             message="No groups yet. Create your first thrift group!"
             style={{ gridColumn: "1/-1" }}
@@ -77,7 +103,7 @@ export default function GroupsTab({
   );
 }
 
-function GroupCard({ group: g, accent }) {
+function GroupCard({ group: g, accent, onOpen }) {
   const details = [
     ["Amount", formatMoney(g.contributionAmount, g.currency)],
     ["Members", `${g.memberIds?.length || 0}/${g.totalMembers}`],
@@ -87,12 +113,23 @@ function GroupCard({ group: g, accent }) {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${g.name}`}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       style={{
         background: "#12122a",
         border: "1px solid #1e1e3a",
         borderRadius: "16px",
         padding: "1.25rem",
         borderTop: `3px solid ${accent}`,
+        cursor: "pointer",
       }}
     >
       <div

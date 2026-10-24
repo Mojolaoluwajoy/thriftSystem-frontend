@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { apiRequest } from "../api";
+import { toLoginRequest, toRegisterRequest, validateLogin, validateRegister } from "./auth";
+
+function FieldError({ message }) {
+  if (!message) return null;
+  return <p style={{ margin: "4px 0 0", color: "#f87171", fontSize: "0.75rem" }}>{message}</p>;
+}
 
 export default function Login({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [form, setForm] = useState({ email: "", password: "" });
   const [regForm, setRegForm] = useState({
     firstName: "",
@@ -14,32 +21,47 @@ export default function Login({ onLogin }) {
     password: "",
   });
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  // Validates locally first, then shows any per-field errors the backend returns as well.
+  const submit = async (path, errors, body, fallbackMessage) => {
     setError("");
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setLoading(true);
     try {
-      const user = await apiRequest("/auth/login", { method: "POST", body: form });
+      const user = await apiRequest(path, { method: "POST", body });
       onLogin(user, user.token);
     } catch (err) {
-      setError(err.message || "Login failed");
+      setFieldErrors(err.fieldErrors || {});
+      setError(err.message || fallbackMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRegister = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const user = await apiRequest("/auth/register", { method: "POST", body: regForm });
-      onLogin(user, user.token);
-    } catch (err) {
-      setError(err.message || "Registration failed");
-    } finally {
-      setLoading(false);
-    }
+    submit("/auth/login", validateLogin(form), toLoginRequest(form), "Login failed");
+  };
+
+  const handleRegister = (e) => {
+    e.preventDefault();
+    submit(
+      "/auth/register",
+      validateRegister(regForm),
+      toRegisterRequest(regForm),
+      "Registration failed",
+    );
+  };
+
+  const updateLogin = (key, value) => {
+    setForm({ ...form, [key]: value });
+    setFieldErrors({ ...fieldErrors, [key]: undefined });
+  };
+
+  const updateRegister = (key, value) => {
+    setRegForm({ ...regForm, [key]: value });
+    setFieldErrors({ ...fieldErrors, [key]: undefined });
   };
 
   const inputStyle = {
@@ -55,6 +77,11 @@ export default function Login({ onLogin }) {
     transition: "border-color 0.2s",
     fontFamily: "inherit",
   };
+
+  const fieldStyle = (key) => ({
+    ...inputStyle,
+    ...(fieldErrors[key] && { border: "2px solid #ef4444" }),
+  });
 
   const labelStyle = {
     display: "block",
@@ -225,6 +252,7 @@ export default function Login({ onLogin }) {
                 onClick={() => {
                   setIsRegister(tab === "Register");
                   setError("");
+                  setFieldErrors({});
                 }}
                 style={{
                   flex: 1,
@@ -265,17 +293,20 @@ export default function Login({ onLogin }) {
           )}
 
           {!isRegister ? (
-            <form onSubmit={handleLogin}>
+            <form onSubmit={handleLogin} noValidate>
               <div style={{ marginBottom: "1.25rem" }}>
                 <label style={labelStyle}>Email</label>
                 <input
                   type="email"
                   placeholder="you@example.com"
                   required
+                  autoComplete="email"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  style={inputStyle}
+                  onChange={(e) => updateLogin("email", e.target.value)}
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  style={fieldStyle("email")}
                 />
+                <FieldError message={fieldErrors.email} />
               </div>
               <div style={{ marginBottom: "1.75rem" }}>
                 <label style={labelStyle}>Password</label>
@@ -283,10 +314,13 @@ export default function Login({ onLogin }) {
                   type="password"
                   placeholder="••••••••"
                   required
+                  autoComplete="current-password"
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  style={inputStyle}
+                  onChange={(e) => updateLogin("password", e.target.value)}
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  style={fieldStyle("password")}
                 />
+                <FieldError message={fieldErrors.password} />
               </div>
               <button
                 type="submit"
@@ -310,7 +344,7 @@ export default function Login({ onLogin }) {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleRegister}>
+            <form onSubmit={handleRegister} noValidate>
               <div
                 style={{
                   display: "grid",
@@ -320,36 +354,42 @@ export default function Login({ onLogin }) {
                 }}
               >
                 {[
-                  ["First Name", "firstName", "John"],
-                  ["Last Name", "lastName", "Doe"],
-                ].map(([label, key, ph]) => (
+                  ["First Name", "firstName", "John", "given-name"],
+                  ["Last Name", "lastName", "Doe", "family-name"],
+                ].map(([label, key, ph, autoComplete]) => (
                   <div key={key}>
                     <label style={labelStyle}>{label}</label>
                     <input
                       placeholder={ph}
                       required
+                      autoComplete={autoComplete}
                       value={regForm[key]}
-                      onChange={(e) => setRegForm({ ...regForm, [key]: e.target.value })}
-                      style={inputStyle}
+                      onChange={(e) => updateRegister(key, e.target.value)}
+                      aria-invalid={Boolean(fieldErrors[key])}
+                      style={fieldStyle(key)}
                     />
+                    <FieldError message={fieldErrors[key]} />
                   </div>
                 ))}
               </div>
               {[
-                ["Email", "email", "email", "you@example.com"],
-                ["Phone Number", "phoneNumber", "tel", "08012345678"],
-                ["Password", "password", "password", "Min 8 characters"],
-              ].map(([label, key, type, ph]) => (
+                ["Email", "email", "email", "you@example.com", "email"],
+                ["Phone Number", "phoneNumber", "tel", "08012345678", "tel"],
+                ["Password", "password", "password", "Min 8 characters", "new-password"],
+              ].map(([label, key, type, ph, autoComplete]) => (
                 <div key={key} style={{ marginBottom: "1.25rem" }}>
                   <label style={labelStyle}>{label}</label>
                   <input
                     type={type}
                     placeholder={ph}
                     required
+                    autoComplete={autoComplete}
                     value={regForm[key]}
-                    onChange={(e) => setRegForm({ ...regForm, [key]: e.target.value })}
-                    style={inputStyle}
+                    onChange={(e) => updateRegister(key, e.target.value)}
+                    aria-invalid={Boolean(fieldErrors[key])}
+                    style={fieldStyle(key)}
                   />
+                  <FieldError message={fieldErrors[key]} />
                 </div>
               ))}
               <button

@@ -1,7 +1,8 @@
 import { currencySymbol, formatMoney } from "../../format";
+import EmptyState from "./EmptyState";
 import { cardColor, COLORS, pageTitleStyle } from "./theme";
 
-export default function CurrenciesTab({ currencies }) {
+export default function CurrenciesTab({ currencies, status }) {
   return (
     <div>
       <h2 style={pageTitleStyle}>Currencies</h2>
@@ -47,6 +48,14 @@ export default function CurrenciesTab({ currencies }) {
             </p>
           </div>
         ))}
+        {currencies.length === 0 && (
+          <EmptyState
+            status={status}
+            icon="💱"
+            message="No currencies available"
+            style={{ gridColumn: "1/-1" }}
+          />
+        )}
       </div>
     </div>
   );

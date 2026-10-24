@@ -2,7 +2,7 @@ import EmptyState from "./EmptyState";
 import { pageTitleStyle } from "./theme";
 import TransactionRow from "./TransactionRow";
 
-export default function PayoutsTab({ payouts }) {
+export default function PayoutsTab({ payouts, status }) {
   return (
     <div>
       <h2 style={pageTitleStyle}>My Payouts</h2>
@@ -17,7 +17,7 @@ export default function PayoutsTab({ payouts }) {
             date={p.scheduledDate}
           />
         ))}
-        {payouts.length === 0 && <EmptyState icon="💸" message="No payouts yet" />}
+        {payouts.length === 0 && <EmptyState status={status} icon="💸" message="No payouts yet" />}
       </div>
     </div>
   );

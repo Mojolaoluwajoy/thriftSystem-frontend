@@ -12,10 +12,8 @@ import useDashboardData from "./dashboard/useDashboardData";
 export default function Dashboard({ user, token, onLogout }) {
   const [active, setActive] = useState("dashboard");
   const [showCreate, setShowCreate] = useState(false);
-  const { groups, contributions, payouts, currencies, loadError, reload, retry } = useDashboardData(
-    token,
-    onLogout,
-  );
+  const { groups, contributions, payouts, currencies, status, loadError, reload, retry } =
+    useDashboardData(token, onLogout);
 
   const handleGroupCreated = () => {
     setShowCreate(false);
@@ -47,23 +45,37 @@ export default function Dashboard({ user, token, onLogout }) {
             groups={groups}
             contributions={contributions}
             payouts={payouts}
+            status={status}
           />
         )}
         {active === "groups" && (
           <GroupsTab
+            user={user}
             token={token}
             groups={groups}
+            status={status.groups}
             currencies={currencies}
             showCreate={showCreate}
             onToggleCreate={setShowCreate}
             onCreated={handleGroupCreated}
+            onChanged={reload}
             onLogout={onLogout}
           />
         )}
-        {active === "contributions" && <ContributionsTab contributions={contributions} />}
-        {active === "payouts" && <PayoutsTab payouts={payouts} />}
-        {active === "currencies" && <CurrenciesTab currencies={currencies} />}
-        {active === "profile" && <ProfileTab user={user} />}
+        {active === "contributions" && (
+          <ContributionsTab
+            contributions={contributions}
+            status={status.contributions}
+            token={token}
+            onChanged={reload}
+            onLogout={onLogout}
+          />
+        )}
+        {active === "payouts" && <PayoutsTab payouts={payouts} status={status.payouts} />}
+        {active === "currencies" && (
+          <CurrenciesTab currencies={currencies} status={status.currencies} />
+        )}
+        {active === "profile" && <ProfileTab user={user} token={token} onLogout={onLogout} />}
       </div>
     </div>
   );

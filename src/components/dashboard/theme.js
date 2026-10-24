@@ -21,6 +21,9 @@ export const statusColor = (s) =>
     PROCESSING: COLORS.purple,
     SUSPENDED: COLORS.red,
     INACTIVE: "#6b7280",
+    FORMING: "#60a5fa",
+    UPCOMING: "#6b7280",
+    REVERSED: COLORS.red,
   })[s] || "#6b7280";
 
 export const errorBoxStyle = {
