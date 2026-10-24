@@ -1,10 +1,11 @@
 import Avatar from "./Avatar";
+import BankAccountSection from "./BankAccountSection";
 import { pageTitleStyle } from "./theme";
 
 const SUPPORT_URL =
   "https://wa.me/2348000000000?text=Hello%2C%20I%20need%20support%20with%20the%20Thrift%20System%20app";
 
-export default function ProfileTab({ user }) {
+export default function ProfileTab({ user, token, onLogout }) {
   const details = [
     { label: "Email", value: user.email, icon: "📧" },
     { label: "User ID", value: user.id, icon: "🔑" },
@@ -51,6 +52,8 @@ export default function ProfileTab({ user }) {
             <span style={{ color: "#fff", fontSize: "0.85rem" }}>{value}</span>
           </div>
         ))}
+
+        <BankAccountSection token={token} onLogout={onLogout} />
 
         <a
           href={SUPPORT_URL}
