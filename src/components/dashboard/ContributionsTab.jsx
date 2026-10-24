@@ -1,8 +1,9 @@
 import EmptyState from "./EmptyState";
+import PayButton from "./PayButton";
 import { pageTitleStyle, statusColor } from "./theme";
 import TransactionRow from "./TransactionRow";
 
-export default function ContributionsTab({ contributions, status }) {
+export default function ContributionsTab({ contributions, status, token, onChanged, onLogout }) {
   return (
     <div>
       <h2 style={pageTitleStyle}>My Contributions</h2>
@@ -15,6 +16,9 @@ export default function ContributionsTab({ contributions, status }) {
             iconBackground={`${statusColor(c.status)}20`}
             dateLabel="Due"
             date={c.dueDate}
+            action={
+              <PayButton contribution={c} token={token} onLogout={onLogout} onSettled={onChanged} />
+            }
           />
         ))}
         {contributions.length === 0 && (
