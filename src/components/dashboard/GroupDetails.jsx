@@ -324,6 +324,70 @@ function CurrentCycle({
           </div>
         </div>
       ))}
+      {group.adminId === userId && row?.payout && (
+        <ProcessPayout
+          payout={row.payout}
+          recipient={nameOf(row.userId)}
+          allPaid={total > 0 && paid >= total}
+          token={token}
+          onDone={onChanged}
+          onLogout={onLogout}
+        />
+      )}
+    </div>
+  );
+}
+
+// Payouts the backend will (re)send: new ones, and transfers that failed or were reversed.
+const PROCESSABLE_PAYOUTS = ["PENDING", "FAILED", "REVERSED"];
+
+function ProcessPayout({ payout, recipient, allPaid, token, onDone, onLogout }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  if (payout.status === "PROCESSING") {
+    return (
+      <p style={{ ...mutedText, marginTop: "1rem" }}>
+        ⏳ Payout to {recipient} is being processed. This page updates once Paystack confirms the
+        transfer.
+      </p>
+    );
+  }
+  if (!PROCESSABLE_PAYOUTS.includes(payout.status)) return null;
+
+  const retrying = payout.status !== "PENDING";
+  const process = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await apiRequest(`/payouts/${payout.id}/process`, { method: "POST", token });
+      onDone();
+    } catch (err) {
+      if (err.status === 401) return onLogout();
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: "1.25rem" }}>
+      {error && <div style={errorBoxStyle}>{error}</div>}
+      {retrying && payout.failureReason && (
+        <p style={{ ...mutedText, color: "#f87171", marginBottom: "0.5rem" }}>
+          Last attempt failed: {payout.failureReason}
+        </p>
+      )}
+      <button onClick={process} disabled={busy || !allPaid} style={primaryButton(busy || !allPaid)}>
+        {busy
+          ? "Sending payout…"
+          : `${retrying ? "Retry payout" : "Process payout"} · ${formatMoney(payout.amount, payout.currency)} to ${recipient}`}
+      </button>
+      {!allPaid && (
+        <p style={{ ...mutedText, fontSize: "0.75rem", marginTop: "6px" }}>
+          Available once every member has paid for this cycle.
+        </p>
+      )}
     </div>
   );
 }
