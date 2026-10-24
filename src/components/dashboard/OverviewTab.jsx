@@ -6,29 +6,41 @@ import { COLORS } from "./theme";
 const greetingFor = (hour) =>
   hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-export default function OverviewTab({ user, groups, contributions, payouts }) {
+// A stat is only computed once its list has loaded, so a slow or failed request
+// doesn't show up as a misleading "0" or "₦0.00".
+const statValue = (listStatus, compute) =>
+  listStatus === "loading" ? "…" : listStatus === "error" ? "—" : compute();
+
+export default function OverviewTab({ user, groups, contributions, payouts, status }) {
   const stats = [
     {
       label: "Active Groups",
-      value: groups.filter((g) => g.status === "ACTIVE").length,
+      value: statValue(status.groups, () => groups.filter((g) => g.status === "ACTIVE").length),
       color: COLORS.purple,
       icon: "👥",
     },
     {
       label: "Total Contributed",
-      value: formatTotals(contributions.filter((c) => c.status === "SUCCESSFUL")),
+      value: statValue(status.contributions, () =>
+        formatTotals(contributions.filter((c) => c.status === "SUCCESSFUL")),
+      ),
       color: COLORS.cyan,
       icon: "💳",
     },
     {
       label: "Total Payouts",
-      value: formatTotals(payouts.filter((p) => p.status === "SUCCESSFUL")),
+      value: statValue(status.payouts, () =>
+        formatTotals(payouts.filter((p) => p.status === "SUCCESSFUL")),
+      ),
       color: COLORS.amber,
       icon: "💸",
     },
     {
       label: "Pending",
-      value: contributions.filter((c) => c.status === "PENDING").length,
+      value: statValue(
+        status.contributions,
+        () => contributions.filter((c) => c.status === "PENDING").length,
+      ),
       color: COLORS.pink,
       icon: "⏳",
     },
@@ -37,6 +49,7 @@ export default function OverviewTab({ user, groups, contributions, payouts }) {
   const recent = [
     {
       title: "Recent Groups",
+      status: status.groups,
       items: groups.slice(0, 3),
       getTitle: (g) => g.name,
       getSub: (g) =>
@@ -45,6 +58,7 @@ export default function OverviewTab({ user, groups, contributions, payouts }) {
     },
     {
       title: "Recent Contributions",
+      status: status.contributions,
       items: contributions.slice(0, 3),
       getTitle: (c) => formatMoney(c.amount, c.currency),
       getSub: (c) => `Cycle ${c.cycleNumber} · ${c.currency}`,
@@ -151,7 +165,7 @@ function StatCard({ label, value, color, icon }) {
   );
 }
 
-function RecentList({ title, items, getTitle, getSub, icon }) {
+function RecentList({ title, status, items, getTitle, getSub, icon }) {
   return (
     <div
       style={{
@@ -186,9 +200,14 @@ function RecentList({ title, items, getTitle, getSub, icon }) {
       ))}
       {items.length === 0 && (
         <p
+          role="status"
           style={{ color: "#4b5563", fontSize: "0.85rem", textAlign: "center", padding: "1rem 0" }}
         >
-          {icon} No data yet
+          {status === "loading"
+            ? "⏳ Loading…"
+            : status === "error"
+              ? "⚠️ Couldn't load"
+              : `${icon} No data yet`}
         </p>
       )}
     </div>
