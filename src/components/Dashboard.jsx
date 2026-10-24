@@ -75,7 +75,7 @@ export default function Dashboard({ user, token, onLogout }) {
         {active === "currencies" && (
           <CurrenciesTab currencies={currencies} status={status.currencies} />
         )}
-        {active === "profile" && <ProfileTab user={user} />}
+        {active === "profile" && <ProfileTab user={user} token={token} onLogout={onLogout} />}
       </div>
     </div>
   );
