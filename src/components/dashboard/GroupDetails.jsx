@@ -3,6 +3,7 @@ import { apiRequest } from "../../api";
 import { formatMoney } from "../../format";
 import EmptyState from "./EmptyState";
 import { frequencyLabel } from "./groups";
+import PayButton from "./PayButton";
 import { buildSchedule } from "./schedule";
 import StatusBadge from "./StatusBadge";
 import { COLORS, errorBoxStyle, inputStyle, labelStyle } from "./theme";
@@ -156,6 +157,10 @@ export default function GroupDetails({ groupId, user, token, onBack, onChanged, 
           contributions={contributions}
           schedule={schedule}
           nameOf={nameOf}
+          userId={user.id}
+          token={token}
+          onChanged={refresh}
+          onLogout={onLogout}
         />
       )}
 
@@ -254,7 +259,16 @@ function AdminSetup({ group, token, onDone, onLogout }) {
   );
 }
 
-function CurrentCycle({ group, contributions, schedule, nameOf }) {
+function CurrentCycle({
+  group,
+  contributions,
+  schedule,
+  nameOf,
+  userId,
+  token,
+  onChanged,
+  onLogout,
+}) {
   const cycle = group.currentCycle;
   const row = schedule[cycle - 1];
   const cycleContributions = contributions.filter((c) => c.cycleNumber === cycle);
@@ -302,7 +316,12 @@ function CurrentCycle({ group, contributions, schedule, nameOf }) {
           }}
         >
           <span style={{ color: "#fff", fontSize: "0.85rem" }}>{nameOf(c.userId)}</span>
-          <StatusBadge status={c.status} />
+          <div style={{ textAlign: "right" }}>
+            <StatusBadge status={c.status} />
+            {c.userId === userId && (
+              <PayButton contribution={c} token={token} onLogout={onLogout} onSettled={onChanged} />
+            )}
+          </div>
         </div>
       ))}
     </div>

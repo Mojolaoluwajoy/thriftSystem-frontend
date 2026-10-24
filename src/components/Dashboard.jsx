@@ -63,7 +63,13 @@ export default function Dashboard({ user, token, onLogout }) {
           />
         )}
         {active === "contributions" && (
-          <ContributionsTab contributions={contributions} status={status.contributions} />
+          <ContributionsTab
+            contributions={contributions}
+            status={status.contributions}
+            token={token}
+            onChanged={reload}
+            onLogout={onLogout}
+          />
         )}
         {active === "payouts" && <PayoutsTab payouts={payouts} status={status.payouts} />}
         {active === "currencies" && (

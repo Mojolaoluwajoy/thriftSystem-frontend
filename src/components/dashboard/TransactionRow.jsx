@@ -3,7 +3,7 @@ import StatusBadge from "./StatusBadge";
 import { statusColor } from "./theme";
 
 // One contribution or payout in a list.
-export default function TransactionRow({ item, icon, iconBackground, dateLabel, date }) {
+export default function TransactionRow({ item, icon, iconBackground, dateLabel, date, action }) {
   return (
     <div
       style={{
@@ -51,6 +51,7 @@ export default function TransactionRow({ item, icon, iconBackground, dateLabel, 
             {dateLabel}: {new Date(date).toLocaleDateString()}
           </p>
         )}
+        {action}
       </div>
     </div>
   );
