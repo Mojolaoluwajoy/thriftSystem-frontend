@@ -50,6 +50,7 @@ export default function Dashboard({ user, token, onLogout }) {
         )}
         {active === "groups" && (
           <GroupsTab
+            user={user}
             token={token}
             groups={groups}
             status={status.groups}
@@ -57,6 +58,7 @@ export default function Dashboard({ user, token, onLogout }) {
             showCreate={showCreate}
             onToggleCreate={setShowCreate}
             onCreated={handleGroupCreated}
+            onChanged={reload}
             onLogout={onLogout}
           />
         )}
