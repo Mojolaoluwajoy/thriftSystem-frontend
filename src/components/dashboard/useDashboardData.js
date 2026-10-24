@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiRequest } from "../../api";
+import { normalizePayouts } from "./payouts";
 
 const LISTS = ["groups", "contributions", "payouts", "currencies"];
 const allLists = (value) => Object.fromEntries(LISTS.map((name) => [name, value]));
@@ -33,7 +34,7 @@ export default function useDashboardData(token, onLogout) {
       );
     load("/group/my-groups", setGroups, "groups");
     load("/contributions/my-contributions", setContributions, "contributions");
-    load("/payouts/my-payouts", setPayouts, "payouts");
+    load("/payouts/my-payouts", (list) => setPayouts(normalizePayouts(list)), "payouts");
     load("/currencies", setCurrencies, "currencies");
   }, [token, onLogout]);
 
