@@ -12,4 +12,12 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    environment: "jsdom",
+    setupFiles: "./src/test/setup.js",
+    // Tests call the API through a fake fetch; pin the base URL so paths are predictable.
+    env: { VITE_API_BASE_URL: "http://api.test/api/v1" },
+    restoreMocks: true,
+    unstubGlobals: true,
+  },
 });
